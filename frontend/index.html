@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>웹툰 메이커</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon.png">
+  <link rel="icon" href="/assets/favicon.ico">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="/static/style2.css?v=7">
+</head>
+<body>
+
+  <!-- ===== 상단 헤더 ===== -->
+  <header class="app-header">
+    <div class="header-left">
+      <img src="/assets/logo_chungju.png" alt="충주캠퍼스" class="header-logo" onerror="this.style.display='none'">
+      <h1 class="header-title">웹툰 메이커</h1>
+    </div>
+    <div class="header-right">
+      <span class="usage-badge" id="usageBadge" title="이번 달 API 사용량 (매달 1일 초기화)">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v6l4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span id="usageText">텍스트 0 · 이미지 0</span>
+      </span>
+      <span class="connection-badge disconnected" id="connectionBadge">
+        <span class="badge-dot"></span>
+        <span class="badge-text">미연결</span>
+      </span>
+      <button class="btn-header" id="saveProjectBtn" title="프로젝트 저장">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 16H3a2 2 0 01-2-2V2a2 2 0 012-2h8l4 4v10a2 2 0 01-2 2z" stroke="currentColor" stroke-width="1.5"/><path d="M11 16v-5H5v5M5 0v4h5" stroke="currentColor" stroke-width="1.5"/></svg>
+        저장
+      </button>
+      <button class="btn-header" id="loadProjectBtn" title="프로젝트 불러오기">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h5l2 2h5a1 1 0 011 1v7a1 1 0 01-1 1H2a1 1 0 01-1-1V5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/></svg>
+        불러오기
+      </button>
+      <button class="btn-icon" id="settingsBtn" title="설정">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M16.2 12.3a1.3 1.3 0 00.26 1.43l.05.05a1.58 1.58 0 11-2.23 2.23l-.05-.05a1.3 1.3 0 00-1.43-.26 1.3 1.3 0 00-.79 1.19v.14a1.58 1.58 0 01-3.16 0v-.07a1.3 1.3 0 00-.85-1.19 1.3 1.3 0 00-1.43.26l-.05.05a1.58 1.58 0 11-2.23-2.23l.05-.05a1.3 1.3 0 00.26-1.43 1.3 1.3 0 00-1.19-.79h-.14a1.58 1.58 0 010-3.16h.07a1.3 1.3 0 001.19-.85 1.3 1.3 0 00-.26-1.43l-.05-.05A1.58 1.58 0 116.45 3.8l.05.05a1.3 1.3 0 001.43.26h.06a1.3 1.3 0 00.79-1.19v-.14a1.58 1.58 0 013.16 0v.07a1.3 1.3 0 00.79 1.19 1.3 1.3 0 001.43-.26l.05-.05a1.58 1.58 0 112.23 2.23l-.05.05a1.3 1.3 0 00-.26 1.43v.06a1.3 1.3 0 001.19.79h.14a1.58 1.58 0 010 3.16h-.07a1.3 1.3 0 00-1.19.79z" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- 프로젝트 불러오기 모달 -->
+  <div class="modal-overlay hidden" id="projectModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>프로젝트 불러오기</h3>
+        <button class="btn-icon-sm" id="closeProjectModal">&times;</button>
+      </div>
+      <div class="modal-body" id="projectList">
+        <p class="placeholder-msg">로딩 중...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 토스트 알림 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ===== 스텝 인디케이터 ===== -->
+  <nav class="step-indicator" id="stepIndicator">
+    <div class="step active" data-step="0"><span class="step-num">0</span><span class="step-label">설정</span></div>
+    <div class="step" data-step="1"><span class="step-num">1</span><span class="step-label">웹툰 설정</span></div>
+    <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">스토리</span></div>
+    <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">캐릭터</span></div>
+    <div class="step" data-step="4"><span class="step-num">4</span><span class="step-label">컷 이미지</span></div>
+    <div class="step" data-step="5"><span class="step-num">5</span><span class="step-label">배치</span></div>
+    <div class="step" data-step="6"><span class="step-num">6</span><span class="step-label">말풍선</span></div>
+    <div class="step" data-step="7"><span class="step-num">7</span><span class="step-label">내보내기</span></div>
+  </nav>
+
+  <!-- ===== 메인 작업 영역 ===== -->
+  <main class="workspace" id="workspace">
+    <div class="workspace-inner">
+      <!-- Stage 0: 설정/연결 -->
+      <section class="stage" id="stage-0">
+        <div class="stage-header">
+          <h2>설정 / API 연결</h2>
+          <p class="stage-desc">FactChat API 키와 호스트를 설정하고 연결을 테스트합니다.</p>
+        </div>
+        <div class="stage-body">
+          <!-- API 설정 카드 -->
+          <div class="card">
+            <h3 class="card-title">API 연결 설정</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="cfgHost">FactChat 호스트</label>
+                <input class="form-input" id="cfgHost" type="url" placeholder="https://factchat-cloud.mindlogic.ai">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="cfgApiKey">API 키</label>
+                <div class="input-with-action">
+                  <input class="form-input" id="cfgApiKey" type="password" placeholder="API 키를 입력하세요">
+                  <button class="btn-icon-sm" id="toggleKeyVis" title="키 표시/숨기기" type="button">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3C4.4 3 1.4 5.4.5 8c.9 2.6 3.9 5 7.5 5s6.6-2.4 7.5-5c-.9-2.6-3.9-5-7.5-5zm0 8.3A3.3 3.3 0 118 4.7a3.3 3.3 0 010 6.6zm0-5.3a2 2 0 100 4 2 2 0 000-4z" fill="currentColor"/></svg>
+                  </button>
+                </div>
+                <span class="form-hint" id="keyStatus"></span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button class="btn btn-primary" id="saveConfigBtn">설정 저장</button>
+              <button class="btn btn-secondary" id="testConnBtn">연결 테스트</button>
+            </div>
+          </div>
+
+          <!-- 연결 테스트 결과 카드 -->
+          <div class="card hidden" id="testResultCard">
+            <h3 class="card-title">연결 테스트 결과</h3>
+            <div class="test-results" id="testResults"></div>
+          </div>
+
+          <!-- 모델 설정 카드 -->
+          <div class="card">
+            <h3 class="card-title">모델 설정</h3>
+            <p class="card-subtitle">각 단계에서 사용할 AI 모델을 지정합니다.</p>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="modelStory">스토리 생성</label>
+                <input class="form-input model-input" id="modelStory" data-key="story" value="claude-opus-5-5">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="modelPanel">컷 프롬프트</label>
+                <input class="form-input model-input" id="modelPanel" data-key="panel_prompt" value="claude-sonnet-5-5">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="modelSuggest">추천 생성</label>
+                <input class="form-input model-input" id="modelSuggest" data-key="suggestions" value="gemini-3.5-flash-lite">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="modelImage">이미지 생성</label>
+                <input class="form-input model-input" id="modelImage" data-key="image" value="gpt-image-2.5-sunburst">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="imageQuality">이미지 품질</label>
+                <select class="form-input" id="imageQuality">
+                  <option value="low">낮음 (초안용, 가장 저렴)</option>
+                  <option value="medium" selected>보통 (권장)</option>
+                  <option value="high">높음 (최종본, 비용 큼)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="maxFrames">패널당 최대 칸 수</label>
+                <select class="form-input" id="maxFrames">
+                  <option value="1">1칸 (이미지 가장 적음)</option>
+                  <option value="2" selected>2칸 (권장)</option>
+                  <option value="3">3칸</option>
+                  <option value="4">4칸</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="useRefImages">캐릭터 시트 참조</label>
+                <select class="form-input" id="useRefImages">
+                  <option value="false" selected>끄기 (권장 — 편집 요청 실패 중)</option>
+                  <option value="true">켜기</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stage 1: 웹툰 설정 -->
+      <section class="stage hidden" id="stage-1">
+        <div class="stage-header">
+          <h2>웹툰 설정</h2>
+          <p class="stage-desc">만들고 싶은 웹툰의 기본 설정을 입력하세요.</p>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <h3 class="card-title">콘텐츠 설정</h3>
+            <div class="form-grid">
+              <div class="form-group full-width">
+                <label class="form-label" for="sKeywords">핵심 키워드</label>
+                <input class="form-input" id="sKeywords" placeholder="예: 신입사원, 첫 출근, 사무실 적응기">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="sGenre">장르</label>
+                <select class="form-select" id="sGenre">
+                  <option value="일상/코미디">일상/코미디</option>
+                  <option value="드라마">드라마</option>
+                  <option value="교육/정보">교육/정보</option>
+                  <option value="홍보">홍보</option>
+                  <option value="감동/힐링">감동/힐링</option>
+                  <option value="액션/모험">액션/모험</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="sMood">분위기</label>
+                <select class="form-select" id="sMood">
+                  <option value="밝고 유쾌한">밝고 유쾌한</option>
+                  <option value="따뜻하고 감성적인">따뜻하고 감성적인</option>
+                  <option value="진지하고 전문적인">진지하고 전문적인</option>
+                  <option value="긴장감 있는">긴장감 있는</option>
+                  <option value="아기자기한">아기자기한</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">그림체 선택</h3>
+            <p class="card-subtitle">원하는 그림체를 클릭하세요. (동일 캐릭터 기준 미리보기)</p>
+            <input type="hidden" id="sArtStyle" value="">
+            <div class="style-grid" id="styleGrid">
+              <!-- 12 카드가 JS로 렌더링됨 -->
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">구성</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="sChapterCount">장 수</label>
+                <input class="form-input" id="sChapterCount" type="number" min="1" max="10" value="1">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="sCharCount">등장인물 수</label>
+                <input class="form-input" id="sCharCount" type="number" min="1" max="6" value="2">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="sDialogueTone">대사 톤</label>
+                <select class="form-select" id="sDialogueTone">
+                  <option value="자연스러운 일상체">자연스러운 일상체</option>
+                  <option value="격식 있는 존댓말">격식 있는 존댓말</option>
+                  <option value="유머러스하고 가벼운">유머러스하고 가벼운</option>
+                  <option value="감성적이고 서정적인">감성적이고 서정적인</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="sCanvasWidth">가로 폭 (px)</label>
+                <input class="form-input" id="sCanvasWidth" type="number" min="600" max="1200" value="800">
+              </div>
+            </div>
+          </div>
+
+          <div class="card" id="chaptersConfigCard">
+            <h3 class="card-title">장별 컷 수 설정</h3>
+            <p class="card-subtitle">각 장(Chapter)마다 컷 수를 개별 지정합니다.</p>
+            <div class="chapters-config-list" id="chaptersConfigList">
+              <div class="chapter-config-row" data-chapter="1">
+                <span class="chapter-label">1장</span>
+                <input class="form-input chapter-panel-input" type="number" min="1" max="20" value="6" data-chapter="1">
+                <span class="chapter-unit">컷</span>
+              </div>
+            </div>
+            <div class="chapters-summary" id="chaptersSummary">총 6컷</div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title">추가 요청 (선택)</h3>
+            <textarea class="form-textarea" id="sExtraNotes" rows="3" placeholder="특별히 원하는 내용이 있으면 자유롭게 적어주세요."></textarea>
+          </div>
+
+          <div class="card-actions">
+            <button class="btn btn-primary" id="saveSettingsBtn">설정 저장 후 다음 →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stage 2: 스토리 생성 -->
+      <section class="stage hidden" id="stage-2">
+        <div class="stage-header">
+          <h2>스토리 생성</h2>
+          <p class="stage-desc">AI가 설정을 바탕으로 시나리오를 작성합니다. 생성 후 자유롭게 편집할 수 있습니다.</p>
+        </div>
+        <div class="stage-body">
+          <div class="card" id="storyActions">
+            <div class="story-toolbar">
+              <button class="btn btn-primary" id="generateStoryBtn">스토리 생성</button>
+              <button class="btn btn-secondary hidden" id="regenerateStoryBtn">다시 생성</button>
+            </div>
+            <div class="story-loading hidden" id="storyLoading">
+              <span class="spinner"></span>
+              <p>AI가 시나리오를 작성 중입니다... (약 30~60초)</p>
+            </div>
+          </div>
+
+          <!-- 시놉시스 -->
+          <div class="card hidden" id="synopsisCard">
+            <h3 class="card-title" id="storyTitle">제목</h3>
+            <p class="story-synopsis" id="storySynopsis"></p>
+          </div>
+
+          <!-- 등장인물 -->
+          <div class="card hidden" id="charactersCard">
+            <h3 class="card-title">등장인물</h3>
+            <div class="characters-grid" id="charactersList"></div>
+          </div>
+
+          <!-- 컷별 시나리오 -->
+          <div class="card hidden" id="panelsCard">
+            <h3 class="card-title">컷별 시나리오</h3>
+            <div class="panels-list" id="panelsList"></div>
+          </div>
+
+          <!-- JSON 직접 편집 -->
+          <div class="card hidden" id="jsonEditCard">
+            <div class="json-edit-header">
+              <h3 class="card-title">JSON 직접 편집</h3>
+              <div class="card-actions">
+                <button class="btn btn-secondary btn-sm" id="toggleJsonBtn">JSON 편집 열기</button>
+              </div>
+            </div>
+            <div class="hidden" id="jsonEditArea">
+              <textarea class="form-textarea json-editor" id="storyJsonEditor" rows="20"></textarea>
+              <div class="card-actions" style="margin-top:10px">
+                <button class="btn btn-primary btn-sm" id="applyJsonBtn">JSON 적용</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- Stage 3: 캐릭터 시트 + 표지 -->
+      <section class="stage hidden" id="stage-3">
+        <div class="stage-header">
+          <h2>캐릭터 시트 & 표지</h2>
+          <p class="stage-desc">등장인물별 다중 뷰 레퍼런스 이미지(정면·3/4·표정)를 생성한 뒤, 자동으로 표지를 만듭니다.</p>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <div class="story-toolbar">
+              <button class="btn btn-primary" id="generateCharsBtn">캐릭터 시트 + 표지 생성</button>
+            </div>
+            <div class="progress-bar-wrap hidden" id="charProgressWrap">
+              <div class="progress-bar-track"><div class="progress-bar-fill" id="charProgressBar"></div></div>
+              <span class="progress-text" id="charProgressText">준비 중...</span>
+            </div>
+          </div>
+
+          <!-- 표지 -->
+          <div class="card hidden" id="coverCard">
+            <h3 class="card-title">표지</h3>
+            <div class="cover-wrap">
+              <img class="cover-img" id="coverImg" alt="표지">
+            </div>
+            <div class="card-actions" style="margin-top:12px">
+              <button class="btn btn-secondary btn-sm" id="regenCoverBtn">표지 다시 생성</button>
+            </div>
+          </div>
+
+          <!-- 캐릭터 시트 -->
+          <div class="char-sheets-grid" id="charSheetsGrid"></div>
+        </div>
+      </section>
+
+      <!-- Stage 4: 컷 이미지 -->
+      <section class="stage hidden" id="stage-4">
+        <div class="stage-header">
+          <h2>컷 이미지</h2>
+          <p class="stage-desc">각 컷의 장면 이미지를 1장씩 생성합니다. 마음에 안 드는 컷만 개별 재생성할 수 있습니다.</p>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <div class="story-toolbar">
+              <button class="btn btn-primary" id="generatePanelsBtn">컷 이미지 생성</button>
+            </div>
+            <div class="progress-bar-wrap hidden" id="panelProgressWrap">
+              <div class="progress-bar-track"><div class="progress-bar-fill" id="panelProgressBar"></div></div>
+              <span class="progress-text" id="panelProgressText">준비 중...</span>
+            </div>
+          </div>
+          <div class="panels-gallery" id="panelsGallery"></div>
+        </div>
+      </section>
+      <!-- Stage 5: 페이지 배치 -->
+      <section class="stage hidden" id="stage-5">
+        <div class="stage-header">
+          <h2>페이지 배치</h2>
+          <p class="stage-desc">선택한 컷들을 세로 스크롤 웹툰 레이아웃으로 배치합니다.</p>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <div class="story-toolbar">
+              <button class="btn btn-primary" id="generateLayoutBtn">페이지 배치 생성</button>
+            </div>
+            <div class="story-loading hidden" id="layoutLoading">
+              <span class="spinner"></span>
+              <p>페이지를 배치하고 있습니다...</p>
+            </div>
+          </div>
+          <div class="card hidden" id="layoutPreviewCard">
+            <h3 class="card-title">배치 미리보기</h3>
+            <div class="layout-preview-wrap">
+              <img class="layout-preview-img" id="layoutPreviewImg" alt="배치 미리보기">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stage 6: 말풍선 / 대사 -->
+      <section class="stage hidden" id="stage-6">
+        <div class="stage-header">
+          <h2>말풍선 / 대사</h2>
+          <p class="stage-desc">한글 대사를 말풍선으로 이미지에 합성합니다. (맑은 고딕, 자동 줄바꿈)</p>
+        </div>
+        <div class="stage-body">
+          <div class="card">
+            <div class="story-toolbar">
+              <button class="btn btn-primary" id="generateBubblesBtn">말풍선 합성</button>
+            </div>
+            <div class="story-loading hidden" id="bubblesLoading">
+              <span class="spinner"></span>
+              <p>말풍선과 대사를 합성하고 있습니다...</p>
+            </div>
+          </div>
+          <div class="card hidden" id="bubblesPreviewCard">
+            <h3 class="card-title">완성 미리보기</h3>
+            <p class="card-subtitle">말풍선이 합성된 최종 페이지입니다.</p>
+            <div class="layout-preview-wrap">
+              <img class="layout-preview-img" id="bubblesPreviewImg" alt="완성 미리보기">
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- Stage 7: 내보내기 -->
+      <section class="stage hidden" id="stage-7">
+        <div class="stage-header">
+          <h2>내보내기</h2>
+          <p class="stage-desc">완성된 웹툰을 PNG, PDF, ZIP으로 다운로드합니다.</p>
+        </div>
+        <div class="stage-body">
+          <div class="export-grid">
+            <div class="export-card" id="exportPngCard">
+              <div class="export-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="#2563EB" stroke-width="2"/><circle cx="8.5" cy="8.5" r="2" fill="#2563EB"/><path d="M3 16l5-5 4 4 3-3 6 6v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-3z" fill="#93C5FD"/></svg>
+              </div>
+              <h3>PNG 이미지</h3>
+              <p>완성 페이지(한 장) + 컷별 개별 PNG</p>
+              <button class="btn btn-primary" id="exportPngBtn">PNG 다운로드</button>
+              <div class="export-status hidden" id="pngStatus"></div>
+            </div>
+
+            <div class="export-card" id="exportPdfCard">
+              <div class="export-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M6 2a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6H6z" stroke="#DC2626" stroke-width="2"/><path d="M14 2v6h6" stroke="#DC2626" stroke-width="2"/><path d="M8 13h8M8 17h5" stroke="#DC2626" stroke-width="2" stroke-linecap="round"/></svg>
+              </div>
+              <h3>PDF 문서</h3>
+              <p>인쇄·공유에 적합한 PDF 파일</p>
+              <button class="btn btn-primary" id="exportPdfBtn">PDF 다운로드</button>
+              <div class="export-status hidden" id="pdfStatus"></div>
+            </div>
+
+            <div class="export-card" id="exportZipCard">
+              <div class="export-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M4 4a2 2 0 012-2h5l2 2h5a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" stroke="#059669" stroke-width="2"/><path d="M12 10v6M9 13h6" stroke="#059669" stroke-width="2" stroke-linecap="round"/></svg>
+              </div>
+              <h3>ZIP 전체 패키지</h3>
+              <p>시나리오 + 캐릭터 시트 + 컷 + 페이지 + PDF 묶음</p>
+              <button class="btn btn-primary" id="exportZipBtn">ZIP 다운로드</button>
+              <div class="export-status hidden" id="zipStatus"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 3가지 추천 카드 -->
+    <aside class="suggestions-panel hidden" id="suggestionsPanel">
+      <h3 class="suggestions-title">추천 제안</h3>
+      <div class="suggestions-cards" id="suggestionsCards"></div>
+    </aside>
+  </main>
+
+  <!-- 하단 네비게이션 -->
+  <footer class="stage-nav">
+    <button class="btn btn-secondary" id="prevBtn" disabled>← 이전</button>
+    <span class="stage-nav-info" id="stageNavInfo">Stage 0 / 7</span>
+    <button class="btn btn-primary" id="nextBtn" disabled>다음 →</button>
+  </footer>
+
+  <script src="/static/app.js?v=9"></script>
+</body>
+</html>

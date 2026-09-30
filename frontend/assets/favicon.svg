@@ -1,0 +1,54 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="0.55" stop-color="#22B8E6"/>
+      <stop offset="1" stop-color="#19D3C5"/>
+    </linearGradient>
+    <linearGradient id="body" x1="24" y1="24" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EAF6FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded square background -->
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#bg)"/>
+
+  <g stroke="#FFFFFF" stroke-linecap="round">
+    <!-- arms -->
+    <g stroke-width="4.2">
+      <line x1="32" y1="32" x2="17" y2="17"/>
+      <line x1="32" y1="32" x2="47" y2="17"/>
+      <line x1="32" y1="32" x2="17" y2="47"/>
+      <line x1="32" y1="32" x2="47" y2="47"/>
+    </g>
+
+    <!-- rotor guards -->
+    <g stroke-width="2.6" fill="#FFFFFF" fill-opacity="0.22">
+      <circle cx="17" cy="17" r="8.5"/>
+      <circle cx="47" cy="17" r="8.5"/>
+      <circle cx="17" cy="47" r="8.5"/>
+      <circle cx="47" cy="47" r="8.5"/>
+    </g>
+  </g>
+
+  <!-- spinning propeller hint (semi-transparent blades) -->
+  <g fill="#FFFFFF" fill-opacity="0.85">
+    <g transform="translate(17,17) rotate(30)"><ellipse rx="8" ry="1.7"/></g>
+    <g transform="translate(47,17) rotate(-30)"><ellipse rx="8" ry="1.7"/></g>
+    <g transform="translate(17,47) rotate(-30)"><ellipse rx="8" ry="1.7"/></g>
+    <g transform="translate(47,47) rotate(30)"><ellipse rx="8" ry="1.7"/></g>
+  </g>
+  <g fill="#22B8E6">
+    <circle cx="17" cy="17" r="2"/>
+    <circle cx="47" cy="17" r="2"/>
+    <circle cx="17" cy="47" r="2"/>
+    <circle cx="47" cy="47" r="2"/>
+  </g>
+
+  <!-- central body -->
+  <rect x="23.5" y="23.5" width="17" height="17" rx="5.5" fill="url(#body)" stroke="#22B8E6" stroke-width="1.2"/>
+  <!-- camera / gimbal -->
+  <circle cx="32" cy="32" r="4.2" fill="#1E66B8"/>
+  <circle cx="32" cy="32" r="1.7" fill="#9FE9FF"/>
+</svg>
