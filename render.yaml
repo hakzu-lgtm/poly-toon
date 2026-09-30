@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: poly-toon
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # 두 값 모두 Render 화면에서 직접 입력한다 (git에 올리지 않음)
+      - key: FACTCHAT_API_KEY
+        sync: false
+      - key: APP_PASSWORD
+        sync: false

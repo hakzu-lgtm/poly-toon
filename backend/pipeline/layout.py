@@ -90,11 +90,8 @@ def layout_pages(
             y += item["height"]
         elif item["type"] == "chapter_header":
             draw.rectangle([0, y, canvas_width, y + item["height"]], fill="#F0F4FF")
-            try:
-                from PIL import ImageFont
-                font = ImageFont.truetype(r"C:\Windows\Fonts\malgunbd.ttf", 20)
-            except Exception:
-                font = ImageDraw.Draw(page).getfont()
+            from backend.pipeline.bubbles import _load_font
+            font = _load_font(20, bold=True)
             text = f"{item['chapter_number']}장  {item['chapter_title']}"
             draw.text((canvas_width // 2, y + 25), text, fill="#2563EB", font=font, anchor="mm")
             y += item["height"]

@@ -1,5 +1,6 @@
 config/
-outputs/
+outputs/*
+!outputs/style_previews/
 .venv/
 __pycache__/
 *.pyc

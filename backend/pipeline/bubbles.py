@@ -15,6 +15,10 @@ def _load_font(size: int, bold: bool = False, font_path: str = "") -> ImageFont.
         candidates.append(r"C:\Windows\Fonts\malgunbd.ttf")
     candidates.append(r"C:\Windows\Fonts\malgun.ttf")
     candidates.append(r"C:\Windows\Fonts\gulim.ttc")
+    # 리눅스 서버 (Dockerfile에서 fonts-nanum 설치)
+    if bold:
+        candidates.append("/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf")
+    candidates.append("/usr/share/fonts/truetype/nanum/NanumGothic.ttf")
     for p in candidates:
         if os.path.exists(p):
             try:

@@ -64,6 +64,19 @@
 - `config/usage.json`에 `image_requests`, `image_failed_requests`를 추가했다.
 - 화면 상단 사용량에 실패 요청 수를 표시한다.
 
+## 5. 인터넷 배포 준비 (Render)
+
+- 저장소: https://github.com/hakzu-lgtm/poly-toon (공개)
+- `Dockerfile`: python 3.12-slim에 한글 폰트 `fonts-nanum`을 설치한다. 포트는 `$PORT`를 쓴다.
+- `render.yaml`: Render 무료 웹 서비스 설정. 헬스 체크는 `/health`다.
+- **환경변수** (Render 화면에서 입력하며 git에는 올리지 않는다):
+  - `FACTCHAT_API_KEY`: `config/config.json`이 없을 때 이 키를 사용한다 (`config_store.load`).
+  - `APP_PASSWORD`: 값이 있으면 모든 요청에 HTTP 기본 인증을 요구한다. `/health`는 제외된다. 사용자 이름은 아무거나 입력해도 된다.
+- 한글 폰트 후보에 리눅스 나눔고딕 경로를 추가했다 (`bubbles.py`, `cover.py`, `layout.py`).
+- `outputs/style_previews/`(그림체 미리보기 12장)를 git에 포함했다. 서버에 없으면 12장 × 15 = 180크레딧을 들여 다시 생성하기 때문이다.
+- 주의: Render 무료 플랜은 15분 동안 접속이 없으면 잠들고, 재시작하면 `outputs/`와 `config/`가 초기화된다.
+  생성한 웹툰은 반드시 내보내기로 내려받아 둘 것.
+
 ## 예상 효과 (12패널 스토리 기준)
 
 - 이전: 이미지 약 27장 × 46 = 약 1,240크레딧 (실패 재시도 제외)

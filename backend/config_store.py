@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
@@ -25,8 +26,12 @@ def load() -> dict:
         data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
         merged = {**DEFAULT_CONFIG, **data}
         merged["models"] = {**DEFAULT_CONFIG["models"], **data.get("models", {})}
-        return merged
-    return dict(DEFAULT_CONFIG)
+    else:
+        merged = dict(DEFAULT_CONFIG)
+    # 서버 배포 시 키는 환경변수로 받는다 (config/ 는 git에 올리지 않음)
+    if os.environ.get("FACTCHAT_API_KEY") and not merged.get("api_key"):
+        merged["api_key"] = os.environ["FACTCHAT_API_KEY"]
+    return merged
 
 
 def save(cfg: dict) -> None:

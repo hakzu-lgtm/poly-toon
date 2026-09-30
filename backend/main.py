@@ -1,10 +1,13 @@
 import asyncio
+import base64
 import json
+import os
+import secrets
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from backend import config_store, factchat_client, usage_tracker, suggestions, project_store
@@ -17,6 +20,29 @@ from backend.pipeline import bubbles as bubbles_pipeline
 from backend.pipeline import exporter
 
 app = FastAPI(title="웹툰 메이커", version="0.1.0")
+
+# ── 접속 비밀번호 (인터넷 배포용) ─────────────────────────────────
+# APP_PASSWORD 환경변수가 있으면 모든 요청에 HTTP 기본 인증을 요구한다.
+# 로컬 실행(환경변수 없음)은 기존처럼 비밀번호 없이 동작한다.
+_APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
+
+
+@app.middleware("http")
+async def require_password(request: Request, call_next):
+    if not _APP_PASSWORD or request.url.path == "/health":
+        return await call_next(request)
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Basic "):
+        try:
+            _, _, pw = base64.b64decode(auth[6:]).decode("utf-8").partition(":")
+        except (ValueError, UnicodeDecodeError):
+            pw = ""
+        if secrets.compare_digest(pw.encode(), _APP_PASSWORD.encode()):
+            return await call_next(request)
+    return Response(
+        "비밀번호가 필요합니다.", status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="webtoon-maker", charset="UTF-8"'},
+    )
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
