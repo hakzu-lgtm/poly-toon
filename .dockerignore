@@ -1,8 +1,0 @@
-.git/
-.venv/
-.claude/
-__pycache__/
-*.pyc
-config/
-outputs/*
-!outputs/style_previews/

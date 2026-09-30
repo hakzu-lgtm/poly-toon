@@ -33,4 +33,4 @@ echo   종료하려면 이 창을 닫거나 Ctrl+C를 누르세요.
 echo.
 
 start "" http://localhost:8000
-python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload

@@ -64,18 +64,19 @@
 - `config/usage.json`에 `image_requests`, `image_failed_requests`를 추가했다.
 - 화면 상단 사용량에 실패 요청 수를 표시한다.
 
-## 5. 인터넷 배포 준비 (Render)
+## 5. 배포 방식: 교원별 로컬 실행 (공용 서버 배포 안 함)
 
 - 저장소: https://github.com/hakzu-lgtm/poly-toon (공개)
-- `Dockerfile`: python 3.12-slim에 한글 폰트 `fonts-nanum`을 설치한다. 포트는 `$PORT`를 쓴다.
-- `render.yaml`: Render 무료 웹 서비스 설정. 헬스 체크는 `/health`다.
-- **환경변수** (Render 화면에서 입력하며 git에는 올리지 않는다):
-  - `FACTCHAT_API_KEY`: `config/config.json`이 없을 때 이 키를 사용한다 (`config_store.load`).
-  - `APP_PASSWORD`: 값이 있으면 모든 요청에 HTTP 기본 인증을 요구한다. `/health`는 제외된다. 사용자 이름은 아무거나 입력해도 된다.
-- 한글 폰트 후보에 리눅스 나눔고딕 경로를 추가했다 (`bubbles.py`, `cover.py`, `layout.py`).
-- `outputs/style_previews/`(그림체 미리보기 12장)를 git에 포함했다. 서버에 없으면 12장 × 15 = 180크레딧을 들여 다시 생성하기 때문이다.
-- 주의: Render 무료 플랜은 15분 동안 접속이 없으면 잠들고, 재시작하면 `outputs/`와 `config/`가 초기화된다.
-  생성한 웹툰은 반드시 내보내기로 내려받아 둘 것.
+- Render 공용 배포는 검토 후 **취소**했다. 한 번 추가했던 `Dockerfile`, `render.yaml`, 접속 비밀번호, 환경변수 키를 모두 제거했다.
+  - 공용 서버에 키를 넣으면 모든 교원이 그 키의 크레딧을 쓰게 된다.
+  - 앱이 한 사람용 구조다. `main.py`의 전역 상태와 `config.json` 하나를 모두가 공유하므로,
+    여럿이 쓰면 키와 작업물이 섞인다. 공용화하려면 사용자별 키·작업 분리가 필요한 큰 작업이다.
+- 교원은 각자 **본인 API 키**로 실행한다. 방법은 README에 정리했다.
+  - A: ZIP을 내려받아 `start.bat`으로 실행한다 (Python 3.12 필요).
+  - B: GitHub Codespaces로 실행한다 (`.devcontainer/devcontainer.json`, 나눔고딕 자동 설치, 포트 8000은 비공개).
+- `start.bat`을 `--host 127.0.0.1`로 바꿨다. 기존 `0.0.0.0`은 같은 네트워크의 다른 사람이 접속해 키를 쓸 수 있었다.
+- 한글 폰트 후보에 리눅스 나눔고딕 경로를 추가했다 (Codespaces용).
+- `outputs/style_previews/`(그림체 미리보기 12장)를 git에 포함했다. 없으면 교원마다 180크레딧을 들여 다시 생성하게 된다.
 
 ## 예상 효과 (12패널 스토리 기준)
 
