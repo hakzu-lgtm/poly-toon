@@ -309,55 +309,6 @@ body {
 }
 .btn-secondary:hover:not(:disabled) { background: #F1F5F9; }
 
-/* ===== 추천 카드 패널 ===== */
-.suggestions-panel {
-  width: 300px;
-  flex-shrink: 0;
-}
-.suggestions-panel.hidden { display: none; }
-
-.suggestions-title {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 12px;
-}
-
-.suggestions-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.suggestion-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: var(--shadow-sm);
-}
-
-.suggestion-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.12);
-  transform: translateY(-2px);
-}
-
-.suggestion-card h4 {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-
-.suggestion-card p {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
 /* ===== 하단 네비게이션 ===== */
 .stage-nav {
   display: flex;
@@ -1079,7 +1030,7 @@ body {
 .panel-variant img {
   width: 100%;
   aspect-ratio: 2/3;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   background: #F1F5F9;
 }
@@ -1284,6 +1235,5 @@ body {
 /* ===== 반응형 ===== */
 @media (max-width: 900px) {
   .workspace { flex-direction: column; padding: 16px; }
-  .suggestions-panel { width: 100%; }
   .step-indicator { justify-content: flex-start; padding: 10px 12px; }
 }

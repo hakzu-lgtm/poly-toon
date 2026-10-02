@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from backend import config_store, factchat_client, usage_tracker, suggestions, project_store
+from backend import config_store, factchat_client, usage_tracker, project_store
 from backend.pipeline import story as story_pipeline
 from backend.pipeline import character as char_pipeline
 from backend.pipeline import panels as panels_pipeline
@@ -60,7 +60,7 @@ async def get_config():
         "models": cfg["models"],
         "font_path": cfg.get("font_path", ""),
         "image_quality": cfg.get("image_quality", "medium"),
-        "max_frames_per_panel": cfg.get("max_frames_per_panel", 2),
+        "max_frames_per_panel": cfg.get("max_frames_per_panel", 3),
         "use_reference_images": cfg.get("use_reference_images", False),
     }
 
@@ -683,16 +683,37 @@ async def get_bubble_result():
 
 # ── Stage 7: 내보내기 ─────────────────────────────────────────────
 
+def _existing_path(result: dict, fallback: str) -> str:
+    """결과의 파일 경로. 서버 재시작으로 메모리가 비었으면 current 폴더의 파일을 쓴다."""
+    p = (result or {}).get("path", "")
+    if p and Path(p).exists():
+        return p
+    f = OUTPUTS_DIR / "current" / fallback
+    return str(f) if f.exists() else ""
+
+
+def _layout_path() -> str:
+    return _existing_path(_layout_result, "pages/full_page.png")
+
+
+def _bubble_path() -> str:
+    return _existing_path(_bubble_result, "final/final_page.png")
+
+
+def _final_page_path() -> str:
+    return _bubble_path() or _layout_path()
+
+
 @app.post("/api/stage7/export-png")
 async def export_png():
-    if not _bubble_result and not _layout_result:
-        raise HTTPException(400, "Stage 5/6 결과가 필요합니다.")
+    final_path = _final_page_path()
+    if not final_path:
+        raise HTTPException(400, "완성 페이지가 없습니다. 5·6단계(배치·말풍선)를 먼저 진행해 주세요.")
     project_dir = OUTPUTS_DIR / "current"
     try:
         panel_paths = await asyncio.to_thread(
             exporter.export_individual_panels, _panel_results, project_dir
         )
-        final_path = _bubble_result.get("path") or _layout_result.get("path", "")
         return {
             "full_page": final_path,
             "panels": panel_paths,
@@ -704,9 +725,9 @@ async def export_png():
 
 @app.post("/api/stage7/export-pdf")
 async def export_pdf():
-    final_path = (_bubble_result or _layout_result or {}).get("path", "")
+    final_path = _final_page_path()
     if not final_path:
-        raise HTTPException(400, "완성 페이지가 필요합니다.")
+        raise HTTPException(400, "완성 페이지가 없습니다. 5·6단계(배치·말풍선)를 먼저 진행해 주세요.")
     project_dir = OUTPUTS_DIR / "current"
     try:
         pdf_path = await asyncio.to_thread(
@@ -727,7 +748,7 @@ async def export_zip():
         zip_path = await asyncio.to_thread(
             exporter.export_zip,
             _current_story, _panel_results, _character_sheets,
-            _cover_result, _layout_result, _bubble_result, project_dir,
+            _cover_result, {"path": _layout_path()}, {"path": _bubble_path()}, project_dir,
         )
         return FileResponse(
             zip_path, media_type="application/zip",
@@ -758,7 +779,7 @@ async def save_project(body: ProjectSaveRequest):
         result = project_store.save_project(
             name, _current_settings, _current_story,
             _character_sheets, _cover_result, _panel_results,
-            _layout_result, _bubble_result,
+            {"path": _layout_path()}, {"path": _bubble_path()},
         )
         return result
     except Exception as e:
@@ -794,34 +815,16 @@ async def load_project(folder: str):
             import base64
             _cover_result = {"path": cp, "b64_preview": base64.b64encode(Path(cp).read_bytes()).decode()}
         _layout_result = {}
-        lp = meta.get("layout_path", "")
-        if lp and Path(lp).exists():
+        lp = _existing_path({"path": meta.get("layout_path", "")}, "pages/full_page.png")
+        if lp:
             import base64
             _layout_result = {"path": lp, "b64_preview": base64.b64encode(Path(lp).read_bytes()).decode()}
         _bubble_result = {}
-        bp = meta.get("bubble_path", "")
-        if bp and Path(bp).exists():
+        bp = _existing_path({"path": meta.get("bubble_path", "")}, "final/final_page.png")
+        if bp:
             import base64
             _bubble_result = {"path": bp, "b64_preview": base64.b64encode(Path(bp).read_bytes()).decode()}
         return {"ok": True, "name": meta.get("name", folder)}
     except Exception as e:
         raise HTTPException(500, f"프로젝트 불러오기 실패: {e}")
 
-
-# ── 추천 (모든 Stage 공용) ────────────────────────────────────────
-
-class SuggestionsRequest(BaseModel):
-    stage: int
-    context_summary: str = ""
-
-
-@app.post("/api/suggestions")
-async def get_suggestions(body: SuggestionsRequest):
-    cfg = config_store.load()
-    if not cfg.get("api_key"):
-        raise HTTPException(400, "API 키가 설정되지 않았습니다.")
-    try:
-        items = suggestions.generate_suggestions(body.stage, body.context_summary)
-        return {"suggestions": items}
-    except Exception as e:
-        raise HTTPException(500, f"추천 생성 실패: {e}")

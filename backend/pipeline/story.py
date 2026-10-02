@@ -1,6 +1,7 @@
 """Stage 2: 스토리 생성 — 장(Chapter) 단위 분할 호출"""
 
 from backend import factchat_client, config_store
+from backend.pipeline import panels
 
 SYSTEM_PROMPT_OUTLINE = """\
 당신은 한국어 웹툰 시나리오 전문 작가입니다.
@@ -61,8 +62,15 @@ SYSTEM_PROMPT_CHAPTER = """\
 중요 규칙:
 - 각 panel의 frames는 {max_frames}개 이하. frame 하나가 이미지 한 장이므로 꼭 필요할 때만 나눔.
 - shot_type 종류: "wide shot", "medium shot", "close-up", "extreme close-up", "over-the-shoulder", "bird's eye", "low angle", "reaction shot"
-- layout은 frames 수와 칸 수가 같아야 함: 1개="1-full", 2개="2-row"/"2-col", 3개 이상은 아래 목록에서 선택.
-- layout 종류: "1-full"(한 장 전체), "2-row"(세로 2등분), "3-row"(세로 3등분), "2-col"(가로 2등분), "1-big-2-small"(위 큰 1장+아래 작은 2장), "2-small-1-big"(위 작은 2장+아래 큰 1장)
+- layout은 아래 목록에서만 고르고, frames 수가 layout의 칸 수와 정확히 같아야 함:
+{layout_guide}
+
+컷 분할 연출 원칙 (실제 웹툰처럼):
+- 장면의 역할에 맞는 layout을 고름. 상황 소개는 넓은 한 칸, 대화는 좌우 칸, 사건·충격은 사선 분할,
+  연속 동작은 사선으로 쌓은 칸, 물건 나열은 가로 띠 여러 칸, 결심·결론은 크게.
+- 같은 layout을 연속으로 쓰지 말고, 1칸 컷과 여러 칸 컷을 섞어 리듬을 만듦.
+- 칸이 여러 개면 frame 순서가 읽는 순서(위→아래, 왼쪽→오른쪽)이며, 각 frame의 크기·모양에 맞는 shot_type을 씀
+  (좁은 띠 칸은 클로즈업이나 물건, 크고 긴 칸은 전신·주인공).
 - 각 frame의 scene은 영어로 (이미지 프롬프트용).
 - panel마다 shot_type을 바꿔 시각적 변화를 줌.
 - dialogue의 text는 한국어.
@@ -132,9 +140,11 @@ def generate_story(settings: dict) -> dict:
             f"- 대사 톤: {settings['dialogue_tone']}\n"
         )
 
-        max_frames = cfg.get("max_frames_per_panel", 2)
+        max_frames = cfg.get("max_frames_per_panel", 3)
         raw_chapter = factchat_client.chat(
-            [{"role": "system", "content": SYSTEM_PROMPT_CHAPTER.replace("{max_frames}", str(max_frames))},
+            [{"role": "system", "content": SYSTEM_PROMPT_CHAPTER
+              .replace("{max_frames}", str(max_frames))
+              .replace("{layout_guide}", panels.layout_guide(max_frames))},
              {"role": "user", "content": chapter_msg}],
             model=cfg["models"].get("panel_prompt", "claude-sonnet-5-5"),
             host=cfg["host"],

@@ -10,11 +10,10 @@ DEFAULT_CONFIG = {
     "models": {
         "story": "claude-opus-5-5",
         "panel_prompt": "claude-sonnet-5-5",
-        "suggestions": "gemini-3.5-flash-lite",
         "image": "gpt-image-2.5-sunburst",
     },
     "image_quality": "medium",
-    "max_frames_per_panel": 2,
+    "max_frames_per_panel": 3,
     "use_reference_images": False,
     "font_path": r"C:\Windows\Fonts\malgun.ttf",
 }

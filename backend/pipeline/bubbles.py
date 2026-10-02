@@ -223,8 +223,8 @@ def compose_bubbles(
     page = Image.open(page_path).convert("RGB")
     draw = ImageDraw.Draw(page)
 
-    font = _load_font(16, font_path=font_path)
-    font_narr = _load_font(14, font_path=font_path)
+    font = _load_font(24, bold=True, font_path=font_path)
+    font_narr = _load_font(21, bold=True, font_path=font_path)
 
     all_panels = []
     for ch in story.get("chapters", []):

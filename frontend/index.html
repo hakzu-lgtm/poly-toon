@@ -8,7 +8,7 @@
   <link rel="icon" href="/assets/favicon.ico">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="/static/style2.css?v=7">
+  <link rel="stylesheet" href="/static/style2.css?v=9">
 </head>
 <body>
 
@@ -127,10 +127,6 @@
                 <input class="form-input model-input" id="modelPanel" data-key="panel_prompt" value="claude-sonnet-5-5">
               </div>
               <div class="form-group">
-                <label class="form-label" for="modelSuggest">추천 생성</label>
-                <input class="form-input model-input" id="modelSuggest" data-key="suggestions" value="gemini-3.5-flash-lite">
-              </div>
-              <div class="form-group">
                 <label class="form-label" for="modelImage">이미지 생성</label>
                 <input class="form-input model-input" id="modelImage" data-key="image" value="gpt-image-2.5-sunburst">
               </div>
@@ -146,8 +142,8 @@
                 <label class="form-label" for="maxFrames">패널당 최대 칸 수</label>
                 <select class="form-input" id="maxFrames">
                   <option value="1">1칸 (이미지 가장 적음)</option>
-                  <option value="2" selected>2칸 (권장)</option>
-                  <option value="3">3칸</option>
+                  <option value="2">2칸</option>
+                  <option value="3" selected>3칸 (권장)</option>
                   <option value="4">4칸</option>
                 </select>
               </div>
@@ -458,11 +454,6 @@
       </section>
     </div>
 
-    <!-- 3가지 추천 카드 -->
-    <aside class="suggestions-panel hidden" id="suggestionsPanel">
-      <h3 class="suggestions-title">추천 제안</h3>
-      <div class="suggestions-cards" id="suggestionsCards"></div>
-    </aside>
   </main>
 
   <!-- 하단 네비게이션 -->
@@ -472,6 +463,6 @@
     <button class="btn btn-primary" id="nextBtn" disabled>다음 →</button>
   </footer>
 
-  <script src="/static/app.js?v=9"></script>
+  <script src="/static/app.js?v=10"></script>
 </body>
 </html>

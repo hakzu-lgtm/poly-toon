@@ -277,7 +277,6 @@ const App = {
       results.innerHTML = html;
       this.setConnected(r.text && r.image);
       await this.loadUsage();
-      if (r.text) this.fetchSuggestions(0);
     } catch (e) {
       results.innerHTML = this._resultItem('연결', false, e.message);
       this.setConnected(false);
@@ -408,7 +407,6 @@ const App = {
       };
       if (!body.keywords) { Toast.error('핵심 키워드를 입력해주세요.'); return; }
       await API.post('/api/stage1/settings', body);
-      this.fetchSuggestions(1, `키워드: ${body.keywords}, ${body.chapter_count}장, 총 ${totalPanels}컷`);
       this.goStage(2);
     } catch (e) {
       Toast.error('설정 저장 실패: ' + e.message);
@@ -444,7 +442,6 @@ const App = {
       await this.loadUsage();
       const chCount = (story.chapters || []).length;
       const panelCount = (story.chapters || []).reduce((s, ch) => s + (ch.panels || []).length, 0) || (story.panels || []).length;
-      this.fetchSuggestions(2, `제목: ${story.title}, ${chCount}장 ${panelCount}컷, 인물: ${(story.characters||[]).map(c=>c.name).join(', ')}`);
     } catch (e) {
       Toast.error('스토리 생성 실패: ' + e.message);
       genBtn.disabled = false;
@@ -604,7 +601,6 @@ const App = {
             progressText.textContent = '표지 생성 실패 — 다시 시도할 수 있습니다.';
           } else if (data.type === 'done') {
             progressText.textContent = '모든 생성 완료!';
-            this.fetchSuggestions(3, `캐릭터 시트 + 표지 생성 완료`);
           }
         }
       }
@@ -768,7 +764,6 @@ const App = {
           } else if (data.type === 'done') {
             progressBar.style.width = '100%';
             progressText.textContent = '모든 컷 생성 완료!';
-            this.fetchSuggestions(4, `컷 이미지 생성 완료`);
           }
         }
       }
@@ -878,7 +873,6 @@ const App = {
       const r = await API.post('/api/stage5/layout', {});
       document.getElementById('layoutPreviewImg').src = `data:image/jpeg;base64,${r.b64_preview}`;
       document.getElementById('layoutPreviewCard').classList.remove('hidden');
-      this.fetchSuggestions(5, `페이지 배치 완료 — ${r.width}x${r.height}px, ${r.panel_count}컷`);
     } catch (e) {
       Toast.error('페이지 배치 실패: ' + e.message);
     } finally {
@@ -902,7 +896,6 @@ const App = {
       const r = await API.post('/api/stage6/bubbles', {});
       document.getElementById('bubblesPreviewImg').src = `data:image/jpeg;base64,${r.b64_preview}`;
       document.getElementById('bubblesPreviewCard').classList.remove('hidden');
-      this.fetchSuggestions(6, `말풍선 합성 완료 — ${r.width}x${r.height}px`);
       await this.loadUsage();
     } catch (e) {
       Toast.error('말풍선 합성 실패: ' + e.message);
@@ -932,7 +925,6 @@ const App = {
       const r = await API.post('/api/stage7/export-png', {});
       status.className = 'export-status success';
       status.textContent = `완료! 컷 ${r.panel_count}개 + 전체 페이지 PNG 생성됨`;
-      this.fetchSuggestions(7, 'PNG 내보내기 완료');
     } catch (e) {
       status.className = 'export-status error';
       status.textContent = '실패: ' + e.message;
@@ -940,6 +932,11 @@ const App = {
       btn.disabled = false;
       btn.textContent = 'PNG 다운로드';
     }
+  },
+
+  async _errorDetail(response) {
+    const text = await response.text();
+    try { return JSON.parse(text).detail || text; } catch { return text; }
   },
 
   async exportPdf() {
@@ -952,7 +949,7 @@ const App = {
     status.textContent = 'PDF 생성 중...';
     try {
       const response = await fetch('/api/stage7/export-pdf', { method: 'POST' });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) throw new Error(await this._errorDetail(response));
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -981,7 +978,7 @@ const App = {
     status.textContent = 'ZIP 패키지 생성 중...';
     try {
       const response = await fetch('/api/stage7/export-zip', { method: 'POST' });
-      if (!response.ok) throw new Error(await response.text());
+      if (!response.ok) throw new Error(await this._errorDetail(response));
       const blob = await response.blob();
       const disposition = response.headers.get('content-disposition') || '';
       const match = disposition.match(/filename="?(.+?)"?$/);
@@ -1001,58 +998,6 @@ const App = {
       btn.disabled = false;
       btn.textContent = 'ZIP 다운로드';
     }
-  },
-
-  // ── 추천 카드 ──────────────────────────────────────────────
-
-  async fetchSuggestions(stage, contextSummary = '') {
-    const panel = document.getElementById('suggestionsPanel');
-    const container = document.getElementById('suggestionsCards');
-    panel.classList.remove('hidden');
-    container.innerHTML = '<div style="text-align:center;padding:16px"><span class="spinner"></span><p style="margin-top:6px;font-size:0.8rem;color:var(--text-secondary)">추천 생성 중...</p></div>';
-    try {
-      const r = await API.post('/api/suggestions', { stage, context_summary: contextSummary });
-      this.showSuggestions(r.suggestions || []);
-      await this.loadUsage();
-    } catch {
-      container.innerHTML = '<p style="font-size:0.8rem;color:var(--text-secondary);text-align:center;padding:12px">추천을 불러오지 못했습니다.</p>';
-    }
-  },
-
-  showSuggestions(items) {
-    const panel = document.getElementById('suggestionsPanel');
-    const container = document.getElementById('suggestionsCards');
-    container.innerHTML = '';
-    if (!items || items.length === 0) { panel.classList.add('hidden'); return; }
-    items.forEach(item => {
-      const card = document.createElement('div');
-      card.className = 'suggestion-card';
-      card.innerHTML = `<h4>${this.escapeHtml(item.title)}</h4><p>${this.escapeHtml(item.desc)}</p>`;
-      card.addEventListener('click', () => this.applySuggestion(item));
-      container.appendChild(card);
-    });
-    panel.classList.remove('hidden');
-  },
-
-  applySuggestion(item) {
-    const action = item.action || '';
-    if (action === 'next_stage') { this.goStage(this.currentStage + 1); }
-    else if (action === 'edit_settings' || action === 'adjust_settings') { this.goStage(1); }
-    else if (action === 'regenerate_story' || action === 'rewrite_story') { this.generateStory(); }
-    else if (action.startsWith('add_') || action.startsWith('enrich_') || action.startsWith('insert_')) {
-      Toast.info(`"${item.title}" — 해당 단계에서 적용해주세요.`);
-      const stage = this._suggestedStageForAction(action);
-      if (stage !== null) this.goStage(stage);
-    } else { Toast.info(`${item.title}: ${item.desc}`); }
-  },
-
-  _suggestedStageForAction(action) {
-    if (action.includes('story') || action.includes('dialogue')) return 2;
-    if (action.includes('character')) return 3;
-    if (action.includes('panel') || action.includes('scene')) return 4;
-    if (action.includes('layout')) return 5;
-    if (action.includes('bubble')) return 6;
-    return null;
   },
 
   // ── 프로젝트 저장 / 불러오기 ─────────────────────────────
