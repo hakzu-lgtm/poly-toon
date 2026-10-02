@@ -33,7 +33,7 @@ def _load_font(size: int, bold: bool = False, font_path: str = "") -> ImageFont.
 POP_FONT_URL = "https://www.onestorecorp.com/assets/fonts/ONE%20Mobile%20POP.zip"
 POP_FONT_NAME = "ONE Mobile POP.ttf"
 FONTS_DIR = Path(__file__).resolve().parent.parent.parent / "fonts"
-TEXT_STROKE = 1   # 굵은 굵기가 없는 글꼴이라 테두리로 굵게 표시 (2배로 그려 줄이므로 실제로는 반 픽셀)
+TEXT_STROKE = 0   # 0이면 글꼴 기본 굵기 (1이면 테두리를 더해 굵게)
 
 
 def _draw_bold_text(page, xy, text, font, color, anchor="la"):
