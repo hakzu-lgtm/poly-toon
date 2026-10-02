@@ -8,7 +8,7 @@
   <link rel="icon" href="/assets/favicon.ico">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="/static/style2.css?v=9">
+  <link rel="stylesheet" href="/static/style2.css?v=11">
 </head>
 <body>
 
@@ -380,9 +380,7 @@
           </div>
           <div class="card hidden" id="layoutPreviewCard">
             <h3 class="card-title">배치 미리보기</h3>
-            <div class="layout-preview-wrap">
-              <img class="layout-preview-img" id="layoutPreviewImg" alt="배치 미리보기">
-            </div>
+            <div class="layout-preview-wrap page-columns" id="layoutPreview"></div>
           </div>
         </div>
       </section>
@@ -406,9 +404,7 @@
           <div class="card hidden" id="bubblesPreviewCard">
             <h3 class="card-title">완성 미리보기</h3>
             <p class="card-subtitle">말풍선이 합성된 최종 페이지입니다.</p>
-            <div class="layout-preview-wrap">
-              <img class="layout-preview-img" id="bubblesPreviewImg" alt="완성 미리보기">
-            </div>
+            <div class="layout-preview-wrap page-columns" id="bubblesPreview"></div>
           </div>
         </div>
       </section>
@@ -463,6 +459,6 @@
     <button class="btn btn-primary" id="nextBtn" disabled>다음 →</button>
   </footer>
 
-  <script src="/static/app.js?v=10"></script>
+  <script src="/static/app.js?v=14"></script>
 </body>
 </html>

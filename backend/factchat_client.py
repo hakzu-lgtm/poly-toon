@@ -142,11 +142,12 @@ def _post_image(kind: str, url: str, model: str, send) -> bytes:
             usage_tracker.log_image_call(kind, model, "timeout")
             raise RuntimeError(f"이미지 생성 시간 초과({_TIMEOUT_IMAGE}초)") from e
 
-        usage_tracker.log_image_call(kind, model, r.status_code)
         if r.status_code == 200:
+            usage_tracker.log_image_call(kind, model, r.status_code)
             return base64.b64decode(r.json()["data"][0]["b64_json"])
 
         detail = _error_detail(r)
+        usage_tracker.log_image_call(kind, model, r.status_code, detail)
         if r.status_code == 402:
             raise CreditExhaustedError(f"FactChat 크레딧이 부족합니다: {detail}")
         if r.status_code == 400 and not drop_quality and "quality" in detail.lower():

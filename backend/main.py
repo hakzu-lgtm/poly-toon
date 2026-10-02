@@ -257,6 +257,61 @@ def _load_persisted():
 
 _load_persisted()
 
+_PANELS_FILE = OUTPUTS_DIR / "current" / "_panels.json"
+
+
+def _persist_panels():
+    """컷 목록(파일 경로·선택)을 디스크에 남겨 서버를 재시작해도 4단계가 비지 않게 한다."""
+    _PANELS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    data = [{
+        "panel_number": pr["panel_number"],
+        "scene": pr.get("scene", ""),
+        "selected": pr.get("selected", 0),
+        "variants": [{k: v[k] for k in ("variant", "path", "layout") if k in v}
+                     for v in pr.get("variants", [])],
+    } for pr in _panel_results]
+    _PANELS_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def _load_panels():
+    global _panel_results
+    results = []
+    if _PANELS_FILE.exists():
+        for pr in json.loads(_PANELS_FILE.read_text(encoding="utf-8")):
+            pr["variants"] = [v for v in pr.get("variants", []) if Path(v["path"]).exists()]
+            if pr["variants"]:
+                pr["selected"] = min(pr.get("selected", 0), len(pr["variants"]) - 1)
+                results.append(pr)
+    elif _STORY_FILE.exists():
+        # 목록 파일이 생기기 전 작업: 현재 스토리 이후에 만들어진 컷 파일로 복원
+        story_time = _STORY_FILE.stat().st_mtime
+        panels_dir = OUTPUTS_DIR / "current" / "panels"
+        by_num: dict[int, list] = {}
+        for f in sorted(panels_dir.glob("panel_*_v*.png")) if panels_dir.exists() else []:
+            if f.stat().st_mtime < story_time:
+                continue
+            _, num, var = f.stem.split("_")
+            by_num.setdefault(int(num), []).append({"variant": int(var[1:]), "path": str(f)})
+        for num in sorted(by_num):
+            results.append({"panel_number": num, "scene": "", "selected": 0,
+                            "variants": sorted(by_num[num], key=lambda v: v["variant"])})
+    _panel_results = results
+
+
+_load_panels()
+
+
+def _clear_character_sheets():
+    """새 스토리를 만들면 이전 스토리의 캐릭터 시트·표지는 쓰지 않는다 (저장된 프로젝트 폴더는 그대로)."""
+    global _character_sheets, _character_sheet_bytes, _cover_result
+    _character_sheets = []
+    _character_sheet_bytes = {}
+    _cover_result = {}
+    chars_dir = OUTPUTS_DIR / "current" / "characters"
+    if chars_dir.exists():
+        for f in chars_dir.glob("*_sheet.png"):
+            f.unlink(missing_ok=True)
+
 
 @app.post("/api/stage1/settings")
 async def save_settings(body: WebtoonSettings):
@@ -286,6 +341,9 @@ async def generate_story():
             story_pipeline.generate_story, _current_settings
         )
         _persist_story()
+        _clear_character_sheets()
+        _panel_results.clear()
+        _persist_panels()
         return _current_story
     except Exception as e:
         raise HTTPException(500, f"스토리 생성 실패: {e}")
@@ -325,8 +383,11 @@ def _safe_char(s: dict) -> dict:
     views = []
     for v in s.get("views", []):
         try:
-            url = "/outputs/" + Path(v.get("path", "")).resolve().relative_to(OUTPUTS_DIR.resolve()).as_posix()
-        except (ValueError, TypeError):
+            p = Path(v.get("path", "")).resolve()
+            # 같은 파일명으로 다시 생성해도 브라우저가 예전 이미지를 쓰지 않도록 수정 시각을 붙인다
+            url = ("/outputs/" + p.relative_to(OUTPUTS_DIR.resolve()).as_posix()
+                   + f"?v={p.stat().st_mtime_ns}")
+        except (ValueError, TypeError, OSError):
             url = ""
         views.append({"key": v["key"], "label": v["label"], "url": url})
     return {"id": s["id"], "name": s["name"], "views": views}
@@ -387,6 +448,7 @@ async def generate_characters_stream():
                 _current_story, art_style, _character_sheet_bytes, project_dir,
             )
             cover_rel = Path(_cover_result['path']).resolve().relative_to(OUTPUTS_DIR.resolve()).as_posix()
+            cover_rel += f"?v={Path(_cover_result['path']).stat().st_mtime_ns}"
             yield f"data: {json.dumps({'type': 'cover', 'url': f'/outputs/{cover_rel}'}, ensure_ascii=False)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'cover_error', 'error': str(e)}, ensure_ascii=False)}\n\n"
@@ -510,6 +572,7 @@ async def generate_panels_stream(body: PanelGenRequest):
                     "selected": 0,
                 }
                 _panel_results.append(result)
+                _persist_panels()
 
                 safe_variants = []
                 for v in variants:
@@ -517,13 +580,14 @@ async def generate_panels_stream(body: PanelGenRequest):
                         rel_path = Path(v["path"]).resolve().relative_to(OUTPUTS_DIR.resolve()).as_posix()
                     except ValueError:
                         rel_path = Path(v["path"]).name
-                    safe_variants.append({"variant": v["variant"], "url": f"/outputs/{rel_path}"})
+                    safe_variants.append({"variant": v["variant"],
+                                          "url": f"/outputs/{rel_path}?v={Path(v['path']).stat().st_mtime_ns}"})
                 yield f"data: {json.dumps({'type': 'panel', 'panel_number': pn, 'scene': result['scene'], 'variants': safe_variants, 'selected': 0}, ensure_ascii=False)}\n\n"
             except factchat_client.CreditExhaustedError as e:
-                yield f"data: {json.dumps({'type': 'error', 'message': f'컷 {pn}에서 생성을 중단했습니다. {e}'}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'error', 'panel_number': pn, 'message': f'컷 {pn}에서 생성을 중단했습니다. {e}'}, ensure_ascii=False)}\n\n"
                 break
             except Exception as e:
-                yield f"data: {json.dumps({'type': 'error', 'message': f'컷 {pn} 생성 실패: {str(e)}'}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'error', 'panel_number': pn, 'message': f'컷 {pn} 생성 실패: {str(e)}'}, ensure_ascii=False)}\n\n"
 
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
@@ -540,6 +604,7 @@ async def select_panel_variant(body: PanelSelectRequest):
     for pr in _panel_results:
         if pr["panel_number"] == body.panel_number:
             pr["selected"] = body.selected
+            _persist_panels()
             return {"ok": True}
     raise HTTPException(404, "해당 컷을 찾을 수 없습니다.")
 
@@ -565,39 +630,63 @@ async def regenerate_single_panel(body: PanelRegenRequest):
     characters = _current_story.get("characters", [])
 
     if body.custom_prompt:
-        panel = {**panel, "scene": body.custom_prompt}
+        extra = f". Additional direction: {body.custom_prompt}"
+        if panel.get("frames"):
+            panel = {**panel, "frames": [{**f, "scene": f.get("scene", "") + extra}
+                                         for f in panel["frames"]]}
+        else:
+            panel = {**panel, "scene": body.custom_prompt}
+
+    pr = next((p for p in _panel_results if p["panel_number"] == body.panel_number), None)
+    start = max((v["variant"] for v in pr["variants"]), default=-1) + 1 if pr else 0
 
     try:
-        variants = panels_pipeline.generate_panel_variants(
+        variants = await asyncio.to_thread(
+            panels_pipeline.generate_panel_variants,
             panel, characters, art_style,
-            _character_sheet_bytes, project_dir / "panels", 1,
+            _character_sheet_bytes, project_dir / "panels", 1, start,
         )
-        for pr in _panel_results:
-            if pr["panel_number"] == body.panel_number:
-                pr["variants"].extend(variants)
-                break
+        if pr is None:  # 처음 생성에 실패했던 컷
+            frames = panel.get("frames", [])
+            pr = {"panel_number": body.panel_number,
+                  "scene": frames[0].get("scene", "") if frames else panel.get("scene", ""),
+                  "variants": [], "selected": 0}
+            _panel_results.append(pr)
+            _panel_results.sort(key=lambda p: p["panel_number"])
+        pr["variants"].extend(variants)
+        _persist_panels()
 
-        safe_variants = [
-            {"variant": v["variant"], "b64_preview": v["b64_preview"]}
-            for v in variants
-        ]
-        return {"panel_number": body.panel_number, "new_variants": safe_variants}
+        return {"panel_number": body.panel_number,
+                "new_variants": [_variant_view(v) for v in variants]}
     except Exception as e:
         raise HTTPException(500, f"컷 재생성 실패: {e}")
 
 
+def _variant_view(v: dict) -> dict:
+    p = Path(v["path"])
+    try:
+        rel = p.resolve().relative_to(OUTPUTS_DIR.resolve()).as_posix()
+        return {"variant": v["variant"], "url": f"/outputs/{rel}?v={p.stat().st_mtime_ns}"}
+    except (ValueError, OSError):
+        return {"variant": v["variant"], "url": ""}
+
+
 @app.get("/api/stage4/panels")
 async def get_panels():
+    if not _panel_results:
+        return {"panels": []}
+    by_num = {pr["panel_number"]: pr for pr in _panel_results}
     safe = []
-    for pr in _panel_results:
+    for panel in _all_panels(_current_story):
+        pn = panel.get("panel_number")
+        frames = panel.get("frames", [])
+        scene = frames[0].get("scene", "") if frames else panel.get("scene", "")
+        pr = by_num.get(pn)
         safe.append({
-            "panel_number": pr["panel_number"],
-            "scene": pr["scene"],
-            "variants": [
-                {"variant": v["variant"], "b64_preview": v["b64_preview"]}
-                for v in pr["variants"]
-            ],
-            "selected": pr["selected"],
+            "panel_number": pn,
+            "scene": (pr or {}).get("scene") or scene,
+            "variants": [_variant_view(v) for v in pr["variants"]] if pr else [],
+            "selected": pr["selected"] if pr else 0,
         })
     return {"panels": safe}
 
@@ -644,8 +733,8 @@ async def get_layout():
 
 @app.post("/api/stage6/bubbles")
 async def generate_bubbles():
-    global _bubble_result
-    if not _layout_result:
+    global _bubble_result, _layout_result
+    if not _layout_result and not _panel_results:
         raise HTTPException(400, "Stage 5 페이지 배치가 필요합니다.")
 
     cfg = config_store.load()
@@ -653,6 +742,13 @@ async def generate_bubbles():
     project_dir = OUTPUTS_DIR / "current"
 
     try:
+        if not _layout_result.get("panel_positions"):
+            _layout_result = await asyncio.to_thread(
+                layout_pipeline.layout_pages,
+                _panel_results, _current_story,
+                _current_settings.get("canvas_width", 800),
+                project_dir=project_dir,
+            )
         _bubble_result = await asyncio.to_thread(
             bubbles_pipeline.compose_bubbles,
             _layout_result["path"],
@@ -809,6 +905,9 @@ async def load_project(folder: str):
                     _character_sheet_bytes[cs["id"]] = p.read_bytes()
                     break
         _panel_results = meta.get("panel_results", [])
+        if not _panel_results:
+            _load_panels()
+        _persist_panels()
         _cover_result = {}
         cp = meta.get("cover_path", "")
         if cp and Path(cp).exists():

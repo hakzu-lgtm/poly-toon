@@ -1237,3 +1237,37 @@ body {
   .workspace { flex-direction: column; padding: 16px; }
   .step-indicator { justify-content: flex-start; padding: 10px 12px; }
 }
+
+.panel-failed-note {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #B91C1C;
+  background: #FEF2F2;
+  border: 1px dashed #FCA5A5;
+  border-radius: var(--radius-sm);
+}
+
+/* 5·6단계 페이지 미리보기: 넓은 화면에서 두 단 */
+.layout-preview-wrap.page-columns {
+  max-width: 1200px;
+  max-height: 80vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 16px;
+  padding: 12px;
+}
+.page-column {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+@media (max-width: 900px) {
+  .layout-preview-wrap.page-columns {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

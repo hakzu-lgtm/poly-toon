@@ -4,6 +4,8 @@ import base64
 from pathlib import Path
 from PIL import Image, ImageDraw
 
+from backend.pipeline import panels
+
 
 def layout_pages(
     panel_results: list[dict],
@@ -26,6 +28,7 @@ def layout_pages(
         chapters = [{"chapter_number": 1, "chapter_title": "", "panels": story.get("panels", [])}]
 
     panel_map = {}
+    layout_keys = {}
     for pr in panel_results:
         sel = pr.get("selected", 0)
         variants = pr.get("variants", [])
@@ -34,6 +37,8 @@ def layout_pages(
             img_path = Path(chosen["path"])
             if img_path.exists():
                 panel_map[pr["panel_number"]] = img_path
+                if chosen.get("layout"):
+                    layout_keys[pr["panel_number"]] = chosen["layout"]
 
     pages = []
     panel_positions = []
@@ -63,7 +68,9 @@ def layout_pages(
                 new_h = int(img.height * ratio)
                 img = img.resize((canvas_width, new_h), Image.LANCZOS)
                 panel_images.append((pn, img))
+                story_layout = panel.get("layout", "")
                 layout_info.append({
+                    "layout": layout_keys.get(pn) or panels.LAYOUT_ALIASES.get(story_layout, story_layout),
                     "type": "panel",
                     "panel_number": pn,
                     "height": new_h,
@@ -83,6 +90,7 @@ def layout_pages(
             page.paste(img, (0, y))
             panel_positions.append({
                 "panel_number": pn,
+                "layout": item.get("layout", ""),
                 "x": 0, "y": y,
                 "width": canvas_width,
                 "height": item["height"],

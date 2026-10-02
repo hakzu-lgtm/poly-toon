@@ -8,6 +8,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from backend import factchat_client, config_store
+from backend.pipeline import framing
 
 CANVAS_W = 1024          # 컷 캔버스 가로 (세로는 레이아웃마다 다름)
 MARGIN = 14             # 캔버스 바깥 여백
@@ -212,24 +213,6 @@ def _framing_hint(fw: float, fh: float) -> str:
     return "balanced framing"
 
 
-def _center_crop(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
-    """이미지를 왜곡 없이 중앙 크롭. 비율 유지."""
-    iw, ih = img.size
-    target_ratio = target_w / target_h
-    img_ratio = iw / ih
-
-    if img_ratio > target_ratio:
-        new_w = int(ih * target_ratio)
-        left = (iw - new_w) // 2
-        img = img.crop((left, 0, left + new_w, ih))
-    else:
-        new_h = int(iw / target_ratio)
-        top = (ih - new_h) // 2
-        img = img.crop((0, top, iw, top + new_h))
-
-    return img.resize((target_w, target_h), Image.LANCZOS)
-
-
 def _build_frame_prompt(
     frame: dict, panel: dict, characters: list[dict], art_style: str, framing: str = ""
 ) -> str:
@@ -250,7 +233,9 @@ def _build_frame_prompt(
         f"Characters: {char_block}. "
         f"Mood: {panel.get('mood', 'neutral')}. "
         f"Cinematic composition, {framing or 'balanced framing'}, "
-        f"main subject kept near the center with some margin around it, expressive, detailed. "
+        f"main subject kept near the center with some margin around it, "
+        f"every character's whole head and face well inside the image with empty headroom above, "
+        f"no face touching or cut by the image edges, expressive, detailed. "
         f"A single continuous scene filling the whole image: no panel borders, no comic grid, "
         f"no speech bubbles, no text."
     )
@@ -279,6 +264,28 @@ def _gen_frame_image(
     return Image.open(io.BytesIO(img_bytes))
 
 
+SAFE_SUFFIX = (
+    " Gentle, family-friendly depiction suitable for all ages: "
+    "no violence, no injury details, nothing scary or graphic."
+)
+
+
+def _gen_frame_with_retry(frame: dict, *args):
+    """이미지 생성이 거절되면(안전 필터 등) 순화한 장면 묘사로 한 번 더 시도한다.
+    실패해도 예외 대신 예외 객체를 돌려줘, 같은 컷의 다른 칸은 살릴 수 있게 한다."""
+    try:
+        return _gen_frame_image(frame, *args)
+    except factchat_client.CreditExhaustedError as e:
+        return e
+    except Exception:
+        pass
+    try:
+        softened = dict(frame, scene=frame.get("scene", "") + "." + SAFE_SUFFIX)
+        return _gen_frame_image(softened, *args)
+    except Exception as e:
+        return e
+
+
 def _fit_layout(frames: list[dict], layout_key: str, max_frames: int) -> tuple[list[dict], str]:
     """칸 수를 max_frames 이하로 자르고, 남은 칸 수에 맞는 레이아웃을 고른다."""
     frames = frames[:max_frames]
@@ -304,7 +311,7 @@ def _compose(frame_images: list[Image.Image], layout_key: str) -> Image.Image:
             draw.polygon(_inset_polygon(pts, -GUTTER * SS / 2), fill=BG_COLOR)
         mask = Image.new("L", (x1 - x0, y1 - y0), 0)
         ImageDraw.Draw(mask).polygon([(x - x0, y - y0) for x, y in pts], fill=255)
-        canvas.paste(_center_crop(img.convert("RGB"), x1 - x0, y1 - y0), (x0, y0), mask)
+        canvas.paste(framing.fit_to_frame(img, mask), (x0, y0), mask)
         draw.line(pts + [pts[0]], fill=LINE_COLOR, width=LINE_W * SS, joint="curve")
 
     return canvas.resize((cw, ch), Image.LANCZOS)
@@ -317,7 +324,9 @@ def generate_panel_variants(
     character_sheets: dict[str, bytes],
     output_dir: Path,
     variant_count: int = 1,
+    start_variant: int = 0,
 ) -> list[dict]:
+    """start_variant: 재생성 시 기존 후보를 덮어쓰지 않도록 이어서 매길 후보 번호."""
     output_dir.mkdir(parents=True, exist_ok=True)
     cfg = config_store.load()
     panel_num = panel.get("panel_number", 0)
@@ -348,15 +357,30 @@ def generate_panel_variants(
         framings.append(_framing_hint(x1 - x0, y1 - y0))
 
     variants = []
-    for vi in range(variant_count):
+    for vi in range(start_variant, start_variant + variant_count):
         with ThreadPoolExecutor(max_workers=min(len(frames), MAX_WORKERS)) as executor:
-            frame_images = list(executor.map(
-                lambda args: _gen_frame_image(args[0], panel, characters, art_style,
-                                              ref_images, args[1], args[2], cfg),
+            results = list(executor.map(
+                lambda args: _gen_frame_with_retry(args[0], panel, characters, art_style,
+                                                   ref_images, args[1], args[2], cfg),
                 zip(frames, gen_sizes, framings),
             ))
 
-        composed = _compose(frame_images, layout_key)
+        frame_images = [r for r in results if isinstance(r, Image.Image)]
+        errors = [r for r in results if not isinstance(r, Image.Image)]
+        credit_err = next((e for e in errors if isinstance(e, factchat_client.CreditExhaustedError)), None)
+        if credit_err:
+            raise credit_err
+        if not frame_images:
+            raise errors[0]
+        # 일부 칸만 실패하면, 이미 비용을 낸 성공한 칸으로 칸 수가 적은 레이아웃을 만든다
+        compose_key = layout_key if not errors else FALLBACK_LAYOUT[len(frame_images)]
+        composed = _compose(frame_images, compose_key)
+
+        # 칸별 원본 보관: 자르기 방식을 바꿔도 다시 생성(크레딧) 없이 재합성할 수 있게
+        raw_dir = output_dir / "raw"
+        raw_dir.mkdir(exist_ok=True)
+        for fi, im in enumerate(frame_images, 1):
+            im.save(str(raw_dir / f"panel_{panel_num:02d}_v{vi}_f{fi}.png"), "PNG")
 
         fname = f"panel_{panel_num:02d}_v{vi}.png"
         out_path = output_dir / fname
@@ -364,6 +388,7 @@ def generate_panel_variants(
 
         variants.append({
             "variant": vi,
+            "layout": compose_key,
             "path": str(out_path),
             "b64_preview": base64.b64encode(out_path.read_bytes()).decode(),
         })

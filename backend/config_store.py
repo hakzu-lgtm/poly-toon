@@ -15,7 +15,7 @@ DEFAULT_CONFIG = {
     "image_quality": "medium",
     "max_frames_per_panel": 3,
     "use_reference_images": False,
-    "font_path": r"C:\Windows\Fonts\malgun.ttf",
+    "font_path": "",  # 비우면 말풍선은 모바일POP체, 그 밖은 맑은 고딕
 }
 
 

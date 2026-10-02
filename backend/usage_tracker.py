@@ -66,7 +66,7 @@ def record_image_edit() -> None:
         save(d)
 
 
-def log_image_call(kind: str, model: str, status) -> None:
+def log_image_call(kind: str, model: str, status, detail: str = "") -> None:
     """성공·실패와 관계없이 게이트웨이로 나간 이미지 요청을 모두 기록한다."""
     with _lock:
         d = load()
@@ -78,5 +78,7 @@ def log_image_call(kind: str, model: str, status) -> None:
             "time": datetime.now().isoformat(timespec="seconds"),
             "kind": kind, "model": model, "status": status,
         }
+        if detail:
+            entry["detail"] = detail[:300]
         with IMAGE_CALL_LOG.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")

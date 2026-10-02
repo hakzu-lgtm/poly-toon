@@ -436,6 +436,9 @@ const App = {
       const story = await API.post('/api/stage2/generate', {});
       this.story = story;
       this.renderStory(story);
+      // 새 스토리 → 이전 캐릭터 시트·표지는 서버에서 지워졌으므로 화면에서도 비운다
+      document.getElementById('charSheetsGrid').innerHTML = '';
+      document.getElementById('coverCard').classList.add('hidden');
       genBtn.classList.add('hidden');
       regenBtn.classList.remove('hidden');
       regenBtn.disabled = false;
@@ -761,6 +764,16 @@ const App = {
             await this.loadUsage();
           } else if (data.type === 'error') {
             Toast.error(data.message || '컷 생성 중 오류');
+            // 실패한 컷도 카드를 만들어 바로 재생성할 수 있게 한다
+            if (data.panel_number) {
+              const p = this._storyPanel(data.panel_number);
+              const frames = (p && p.frames) || [];
+              this.appendPanelGalleryItem({
+                panel_number: data.panel_number,
+                scene: frames.length ? frames[0].scene : ((p && p.scene) || ''),
+                variants: [], selected: 0,
+              });
+            }
           } else if (data.type === 'done') {
             progressBar.style.width = '100%';
             progressText.textContent = '모든 컷 생성 완료!';
@@ -772,6 +785,12 @@ const App = {
     } finally {
       btn.disabled = false;
     }
+  },
+
+  _storyPanel(panelNum) {
+    const s = this.story || {};
+    const all = (s.chapters || []).flatMap(ch => ch.panels || []).concat(s.panels || []);
+    return all.find(p => p.panel_number === panelNum);
   },
 
   appendPanelGalleryItem(panelData) {
@@ -789,6 +808,9 @@ const App = {
           <div class="panel-variant-label">후보 ${v.variant + 1}</div>
         </div>`;
     });
+    if (!variantsHtml) {
+      variantsHtml = '<div class="panel-failed-note">생성 실패 — 아래 재생성 버튼을 눌러 주세요.</div>';
+    }
 
     item.innerHTML = `
       <div class="panel-gallery-header">
@@ -838,6 +860,9 @@ const App = {
         custom_prompt: customPrompt,
       });
       const variantsDiv = containerEl.querySelector('.panel-variants');
+      const failedNote = variantsDiv.querySelector('.panel-failed-note');
+      if (failedNote) failedNote.remove();
+      const wasEmpty = !variantsDiv.querySelector('.panel-variant');
       (r.new_variants || []).forEach(v => {
         const el = document.createElement('div');
         el.className = 'panel-variant';
@@ -849,6 +874,8 @@ const App = {
         el.addEventListener('click', () => this.selectPanelVariant(panelNum, v.variant, containerEl));
         variantsDiv.appendChild(el);
       });
+      // 실패했던 컷은 새로 만든 후보가 곧 선택된 컷
+      if (wasEmpty) variantsDiv.querySelector('.panel-variant')?.classList.add('selected');
       await this.loadUsage();
     } catch (e) {
       Toast.error('재생성 실패: ' + e.message);
@@ -871,7 +898,7 @@ const App = {
     loading.classList.remove('hidden');
     try {
       const r = await API.post('/api/stage5/layout', {});
-      document.getElementById('layoutPreviewImg').src = `data:image/jpeg;base64,${r.b64_preview}`;
+      await this.showPagePreview('layoutPreview', `data:image/png;base64,${r.b64_preview}`);
       document.getElementById('layoutPreviewCard').classList.remove('hidden');
     } catch (e) {
       Toast.error('페이지 배치 실패: ' + e.message);
@@ -879,6 +906,56 @@ const App = {
       btn.disabled = false;
       loading.classList.add('hidden');
     }
+  },
+
+  // 세로로 긴 페이지를 컷 사이 흰 여백에서 나눠 두 단으로 보여준다 (좁은 화면에서는 한 단)
+  async showPagePreview(containerId, src) {
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const full = document.createElement('canvas');
+    full.width = w; full.height = h;
+    const ctx = full.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+
+    const split = this._findSplitRow(ctx, w, h);
+    const box = document.getElementById(containerId);
+    box.innerHTML = '';
+    [[0, split], [split, h]].forEach(([y0, y1]) => {
+      if (y1 - y0 < 2) return;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = y1 - y0;
+      c.getContext('2d').drawImage(full, 0, y0, w, y1 - y0, 0, 0, w, y1 - y0);
+      c.className = 'page-column';
+      box.appendChild(c);
+    });
+  },
+
+  _findSplitRow(ctx, w, h) {
+    // 가운데에서 가장 가까운 컷 사이 흰 여백의 가운데
+    const mid = Math.floor(h / 2), range = Math.floor(h * 0.3);
+    const data = ctx.getImageData(0, mid - range, w, range * 2).data;
+    const isBlank = (row) => {
+      const base = row * w * 4;
+      for (let x = 0; x < w; x += 6) {
+        const i = base + x * 4;
+        if (data[i] < 238 || data[i + 1] < 238 || data[i + 2] < 238) return false;
+      }
+      return true;
+    };
+    let best = null;
+    for (let d = 0; d < range; d++) {
+      for (const row of [range + d, range - d - 1]) {
+        if (row < 0 || row >= range * 2 || !isBlank(row)) continue;
+        let a = row, b = row;
+        while (a > 0 && isBlank(a - 1)) a--;
+        while (b < range * 2 - 1 && isBlank(b + 1)) b++;
+        if (b - a >= 30) { best = mid - range + Math.floor((a + b) / 2); break; }  // 컷 안 칸 사이(약 10px)가 아니라 컷 사이(약 40px)
+      }
+      if (best !== null) break;
+    }
+    return best ?? mid;
   },
 
   // ── Stage 6: 말풍선 / 대사 합성 ────────────────────────────
@@ -894,7 +971,7 @@ const App = {
     loading.classList.remove('hidden');
     try {
       const r = await API.post('/api/stage6/bubbles', {});
-      document.getElementById('bubblesPreviewImg').src = `data:image/jpeg;base64,${r.b64_preview}`;
+      await this.showPagePreview('bubblesPreview', `data:image/png;base64,${r.b64_preview}`);
       document.getElementById('bubblesPreviewCard').classList.remove('hidden');
       await this.loadUsage();
     } catch (e) {

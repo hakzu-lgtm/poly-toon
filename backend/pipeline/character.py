@@ -9,7 +9,10 @@ VIEWS = []
 
 def _build_prompt(char: dict, art_style: str) -> str:
     return (
-        f"Professional character reference sheet, {art_style}, "
+        f"ART STYLE (mandatory, apply to every view): {art_style}. "
+        f"Render the whole sheet in exactly this art style, matching its rendering, colors and line quality; "
+        f"do not fall back to a generic anime or sketch look. "
+        f"Character reference sheet showing "
         f"multiple views of the SAME single character on a clean white background. "
         f"Layout: left side shows full body front view, "
         f"center shows full body three-quarter angle view, "
@@ -18,8 +21,8 @@ def _build_prompt(char: dict, art_style: str) -> str:
         f"Character appearance: {char.get('appearance', '')}. "
         f"Outfit: {char.get('outfit', '')}. "
         f"All views must show the EXACT same character with consistent face, hair, body, and outfit. "
-        f"Character model sheet style, clean layout with clear spacing between views, "
-        f"well-defined proportions, detailed face and clothing."
+        f"Clean layout with clear spacing between views, "
+        f"well-defined proportions, detailed face and clothing, all in the {art_style} look."
     )
 
 

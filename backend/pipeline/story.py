@@ -51,8 +51,9 @@ SYSTEM_PROMPT_CHAPTER = """\
       ],
       "characters_in_scene": ["char_1"],
       "dialogue": [
-        {"character": "char_1", "text": "대사 (한국어)", "type": "speech"},
-        {"character": null, "text": "나레이션 (한국어)", "type": "narration"}
+        {"character": null, "text": "나레이션 (한국어)", "type": "narration"},
+        {"character": "char_1", "text": "짧은 대사 (한국어)", "type": "speech", "frame": 1},
+        {"character": "char_2", "text": "속마음", "type": "thought", "frame": 2}
       ],
       "mood": "이 컷의 분위기 (영어)"
     }
@@ -74,6 +75,13 @@ SYSTEM_PROMPT_CHAPTER = """\
 - 각 frame의 scene은 영어로 (이미지 프롬프트용).
 - panel마다 shot_type을 바꿔 시각적 변화를 줌.
 - dialogue의 text는 한국어.
+
+대사 규칙 (말풍선이 그림을 가리지 않도록):
+- 대사 한 개는 20자 안팎의 짧은 한 마디. 긴 말은 핵심만 남기거나 다음 컷으로 나눔.
+- 한 panel의 speech/thought는 2~3개까지. 꼭 필요하지 않으면 1개도 좋음.
+- 나레이션(type "narration")은 장면 전환·시간 경과처럼 꼭 필요할 때만, 한 panel에 1개, 30자 이내.
+- speech/thought에는 "frame"(그 대사가 나오는 칸 번호, 1부터)을 반드시 적고, 말하는 인물이 그 칸에 등장해야 함.
+- type 종류: "speech"(말), "thought"(속마음), "narration"(나레이션).
 - panel_number는 지정된 시작 번호부터 연속.
 - 컷 수는 사용자가 지정한 수에 정확히 맞춤.
 """
