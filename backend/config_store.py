@@ -9,8 +9,8 @@ DEFAULT_CONFIG = {
     "api_key": "",
     "models": {
         "story": "claude-opus-5-5",
-        "panel_prompt": "claude-sonnet-5-5",
-        "image": "gpt-image-2.5-sunburst",
+        "panel_prompt": "gpt-6.2-sol",
+        "image": "gpt-image-2.6-sunburst",
     },
     "image_quality": "medium",
     "max_frames_per_panel": 3,

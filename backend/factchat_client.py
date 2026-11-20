@@ -49,11 +49,12 @@ def chat(
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    body: dict = {
-        "model": model,
-        "messages": messages,
-        "max_tokens": max_tokens,
-    }
+    body: dict = {"model": model, "messages": messages}
+    # 최신 GPT 모델은 max_tokens 대신 max_completion_tokens를 받는다 (추론 토큰 포함 한도)
+    if model.startswith("gpt-"):
+        body["max_completion_tokens"] = max_tokens
+    else:
+        body["max_tokens"] = max_tokens
     # response_format은 일부 게이트웨이에서 미지원 — 시스템 프롬프트로 JSON 강제
 
     r = httpx.post(url, headers=headers, json=body, timeout=_TIMEOUT_TEXT)
@@ -77,7 +78,7 @@ NEGATIVE_INSTRUCTION = (
     "signatures, or logos in the image."
 )
 
-DEFAULT_IMAGE_MODEL = "gpt-image-2.5-sunburst"
+DEFAULT_IMAGE_MODEL = "gpt-image-2.6-sunburst"
 
 IMAGE_QUALITIES = ("low", "medium", "high")
 DEFAULT_IMAGE_QUALITY = "medium"

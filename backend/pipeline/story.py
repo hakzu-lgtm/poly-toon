@@ -154,10 +154,10 @@ def generate_story(settings: dict) -> dict:
               .replace("{max_frames}", str(max_frames))
               .replace("{layout_guide}", panels.layout_guide(max_frames))},
              {"role": "user", "content": chapter_msg}],
-            model=cfg["models"].get("panel_prompt", "claude-sonnet-5-5"),
+            model=cfg["models"].get("panel_prompt", "gpt-6.2-sol"),
             host=cfg["host"],
             api_key=cfg["api_key"],
-            max_tokens=4096,
+            max_tokens=16000,  # GPT 추론 토큰이 한도에 포함되므로 JSON이 잘리지 않게 여유를 둔다
         )
         ch_data = factchat_client.parse_json_response(raw_chapter)
         chapters.append(ch_data)
